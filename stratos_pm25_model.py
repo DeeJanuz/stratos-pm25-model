@@ -76,8 +76,8 @@ SECONDARY_PROFILES = {
 
 @dataclasses.dataclass(frozen=True)
 class ModelConfig:
-    site_lat: float = 41.88
-    site_lon: float = -112.95
+    site_lat: float = 41.7744825
+    site_lon: float = -112.6559297
     grid_radius_km: float = 50.0
     grid_step_km: float = 5.0
     mixing_height_m: float = 400.0
@@ -169,8 +169,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--run-name", help="Optional deterministic run directory name under --output-dir")
     parser.add_argument("--grid-radius-km", type=float, default=50.0)
     parser.add_argument("--grid-step-km", type=float, default=5.0)
-    parser.add_argument("--site-lat", type=float, default=41.88)
-    parser.add_argument("--site-lon", type=float, default=-112.95)
+    parser.add_argument("--site-lat", type=float, default=41.7744825)
+    parser.add_argument("--site-lon", type=float, default=-112.6559297)
     parser.add_argument("--mixing-height-m", type=float, default=400.0)
     parser.add_argument("--stability", choices=["A", "B", "C", "D", "E", "F"], default="F")
     parser.add_argument("--meander-sigma-deg", type=float, default=12.0)

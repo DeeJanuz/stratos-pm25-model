@@ -21,9 +21,13 @@ This is not a regulatory model. Use AERMOD/AERSCREEN for refined direct-source p
 Run worst-case and historical-event simulations using the original `405 lb/hr` primary PM2.5 assumption:
 
 ```bash
-cd /Users/daenonjanis/projects/stratos-pm25-model
+cd stratos-pm25-model
 python3 stratos_pm25_model.py --mode all --years 2024 2025
 ```
+
+The default source coordinate is `41.7744825, -112.6559297`, an approximate
+Hansel Valley project-area point. Override it with `--site-lat` and
+`--site-lon` if exact stack or facility coordinates become available.
 
 The default PM2.5 background station is strict. `BG` is not present in the
 Utah DAQ PM2.5 archive CSVs for 2022-2023, so a four-year proxy run must
