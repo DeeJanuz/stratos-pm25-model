@@ -1,6 +1,6 @@
 # Stratos PM2.5 Screening Model
 
-This folder contains a dependency-free Python screening model for estimating incremental PM2.5 impacts from Stratos-area power generation during Utah winter inversion events.
+This repo contains a dependency-free Python screening model for estimating incremental PM2.5 impacts from Stratos-area power generation during Utah winter inversion events.
 
 It is designed to replace the original centerline-only plume script with a more useful scaffold:
 
