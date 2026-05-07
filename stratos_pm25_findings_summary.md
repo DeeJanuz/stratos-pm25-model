@@ -1,194 +1,156 @@
 # Stratos PM2.5 Screening Findings
 
-> Superseded note: the current evidence-first comparison is
-> `stratos_pm25_population_comparison_summary.md`, based on the all-events
-> 70 km screening matrix in `runs/screening_matrix/20260507_all_events_70km_screen`.
-> This earlier narrative summary is retained for run history but should not be
-> treated as the current comparison document.
+This narrative summary is a companion to `stratos_pm25_population_comparison_summary.md`, which remains the evidence-first table document. Both documents now refer to the same current screening matrix:
+
+- Primary run: `runs/screening_matrix/20260507_all_events_70km_screen_v3_conservative_secondaries`
+- Source point: `41.7744825, -112.6559297`, an approximate Hansel Valley project-area point, not an exact stack coordinate
+- Receptor grid: 70 km radius, 2.5 km spacing
+- Population overlay: 2020 Census block population within the 70 km Box Elder County screen
+- Historical periods: strict `BG` 2024-2025 and four-year proxy 2022-2025
+
+This is a screening model. It does not estimate mortality, indoor exposure, toxicology, permitting compliance, or exact town-specific background PM2.5.
 
 ## Executive Summary
 
-We built a screening model to estimate what the Stratos-area power plant could have added to PM2.5 pollution during historical Utah winter inversion events. After audit fixes, the key finding is more conditional than the first summary: **for the approximate Hansel Valley center point, major population centers still avoid the modeled worst impact zones, but exact stack siting can materially change exposure for small nearby communities.**
+The current model points to a localized, event-dependent PM2.5 increment rather than a countywide toxic-air scenario. The project signal is not zero, and some near-source or downwind receptors can see meaningful modeled additions during certain stagnant winter events. But at the base assumed source point, most populated areas are modeled in the low-single-digit increment range.
 
-The model now separates two types of runs:
+The most important caution is siting. The modeled coordinate is an approximate Hansel Valley anchor. Public project materials identify a broad Stratos/Hansel Valley project area, not exact stack coordinates. Our own source-location sensitivity shows that 10 km shifts can materially change which blocks and communities fall into higher-increment bands.
 
-- **Strict local-background run:** 2024-2025 only, using Brigham City `BG` PM2.5 where that station is available in the Utah DAQ archive.
-- **Four-year proxy run:** 2022-2025, explicitly allowing PM2.5 fallback stations for years where `BG` is missing from the archive CSVs.
+## Current Method In Plain English
 
-In the worst precursor-chemistry scenario, the physically worst modeled receptor additions rose when the grid was refined from 5 km to 2.5 km. The highest physical receptor values should therefore be treated as grid-sensitive screening estimates, not stable point predictions. Population exposure remains much lower than the physical maxima at the base location, but 5-10 km source-location shifts can increase exposure for small populated areas.
+The project increments are modeled, not measured. The workflow is:
 
-## Data Sources
+1. Load historical Utah DAQ PM2.5, wind speed, wind direction, and temperature data.
+2. Detect winter inversion/stagnation events from cold-season timing, low wind, elevated hourly PM2.5, and elevated rolling 24-hour PM2.5.
+3. Replay each detected event as if the assumed project source existed during that event.
+4. Use a simplified plume-dispersion screen with hourly wind rotation, stable dispersion, plume rise, inversion-lid reflection, and trapped-lid fumigation.
+5. Add simple screening secondary-PM assumptions for NOx, SO2, NH3, and VOC precursor cases.
+6. Assign Census block and place centroids to the nearest modeled receptor.
+7. Compare modeled increments with BG/BV background monitor context and SLC Hawthorne monitor context over the same event windows.
 
-The model used public data from:
+The model is more useful for first-pass screening, scenario comparison, and sensitivity checks than for exact local concentration claims.
 
-- Utah DAQ air pollution and meteorological archives: https://air.utah.gov/dataarchive/index.htm
-- Utah DAQ station information, including Brigham City `BG` and Salt Lake City Hawthorne `HW`: https://air.utah.gov/network/Counties.htm
-- Box Elder County Stratos project map page: https://www.boxeldercountyut.gov/644/Stratos-Project-Map
-- U.S. Census 2020 Redistricting Data (PL 94-171) block population: https://api.census.gov/data/2020/dec/pl.html
-- U.S. Census TIGER/Line block geography: https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html
-- EPA PM2.5 NAAQS context: https://www.epa.gov/particle-pollution-designations/particle-pollution-designations-2024-revised-annual-pm-naaqs-where
+## Emissions Scenarios
 
-EPA's current PM2.5 standards provide useful scale: the annual primary PM2.5 standard is **9.0 ug/m3**, and the 24-hour standard remains **35 ug/m3**.
+The matrix compares three assumptions:
 
-## Modeling Methodology
+| Scenario | Primary PM2.5 | NOx | SO2 | NH3 | VOC | Secondary treatment |
+|---|---:|---:|---:|---:|---:|---|
+| Direct only | 405 lb/hr | 0 | 0 | 0 | 0 | none |
+| Typical secondary | 405 lb/hr | 250 lb/hr | 5 lb/hr | 40 lb/hr | 30 lb/hr | `typical_inversion` coefficients |
+| Conservative worst secondary | 405 lb/hr | 250 lb/hr | 5 lb/hr | 40 lb/hr | 30 lb/hr | higher `worst_inversion` coefficients |
 
-The original script only estimated a centerline Gaussian plume. We replaced it with a more realistic screening model:
+The conservative-worst secondary case converts NOx, SO2, NH3, and VOC at 0.60, 0.80, 0.50, and 0.20 respectively before simple nitrate/sulfate mass-uplift factors. It is a high-end sensitivity case, not a chemical-transport model.
 
-1. **Historical meteorology:** pulled hourly wind speed, wind direction, temperature, and PM2.5 from Utah DAQ archive CSVs for 2022-2025.
-2. **Inversion detection:** identified winter inversion/stagnation events using elevated PM2.5 and low-wind/cold conditions.
-3. **Source scenario:** modeled the original direct PM2.5 assumption of **405 lb/hr** plus an illustrative precursor case:
-   - NOx: **250 lb/hr**
-   - SO2: **5 lb/hr**
-   - NH3: **40 lb/hr**
-   - VOC: **30 lb/hr**
-4. **Secondary PM2.5 screen:** converted portions of NOx, SO2, NH3, and VOC into PM2.5-equivalent mass using a worst-inversion screening profile. This is a sensitivity estimate, not a full atmospheric chemistry model.
-5. **Dispersion:** used a receptor grid around an approximate Hansel Valley project center, hourly wind rotation, crosswind dispersion, plume rise, inversion-lid reflection, and a trapped-lid fumigation floor.
-6. **Regional accumulation:** added a separate mixed-box calculation for broad trapped-basin accumulation.
-7. **Population overlay:** used a reproducible `population_overlay.py` script with 2020 Census block population and assigned populated block centroids to the nearest modeled receptor to estimate how many people fall under different modeled increment levels.
-8. **SLC comparison:** compared modeled increments to actual PM2.5 recorded at Salt Lake City's Hawthorne `HW` monitor over the same historical inversion windows.
+## Population Exposure
 
-## Historical Inversion Results
+The 70 km population table is max-over-history: each Census block is assigned its own largest modeled event-average increment across all modeled events. It answers, "how many people had at least one modeled event above this threshold?"
 
-Across the top historical inversion events, the refined 2.5 km worst-precursor model estimated:
+| Scenario | p50 added | p95 added | p99 added | Population >=2 | Population >=5 | Population >=10 |
+|---|---:|---:|---:|---:|---:|---:|
+| Strict BG direct only | 0.57 | 1.62 | 2.39 | 732 | 278 | 18 |
+| Strict BG typical secondary | 0.61 | 1.75 | 2.58 | 738 | 345 | 18 |
+| Strict BG conservative worst secondary | 0.90 | 2.57 | 3.79 | 8,368 | 514 | 50 |
+| Four-year proxy direct only | 0.78 | 1.64 | 2.85 | 1,060 | 288 | 24 |
+| Four-year proxy typical secondary | 0.84 | 1.76 | 3.07 | 1,092 | 360 | 24 |
+| Four-year proxy conservative worst secondary | 1.24 | 2.59 | 4.52 | 9,232 | 522 | 72 |
 
-- Worst physical receptor additions: roughly **16-39 ug/m3** event-average PM2.5 depending on event set and station treatment.
-- Broad regional/mixed-box additions: about **1.7-3.3 ug/m3**.
-- Most major populated towns: generally low single-digit additions at the base assumed site location.
+The event-specific table is more appropriate for simultaneous exposure. In the conservative-worst runs, the event that maximized population above 2 ug/m3 had 4,960 people above that threshold during the same modeled event. Events that maximized higher thresholds had much smaller exposed populations: 261 people above 5 ug/m3 and 40 people above 10 ug/m3.
 
-These are incremental additions, not total PM2.5. Total PM2.5 would be local background plus the modeled increment.
+## Place-Level Findings
 
-## Population Exposure Findings
+For the event where each place receives its maximum modeled project increment under the conservative-worst scenario:
 
-Within 50 km of the approximate Hansel Valley project center, the 2020 Census block overlay found about **24,417 people** in populated blocks.
+| Period | Place | Max modeled project increment | BG/BV + increment in that event | SLC avg same window |
+|---|---|---:|---:|---:|
+| Strict BG | Snowville | 9.97 | 14.96 | 5.44 |
+| Strict BG | Howell | 5.76 | 9.13 | 6.89 |
+| Strict BG | Tremonton | 1.69 | 5.05 | 6.89 |
+| Strict BG | Garland | 1.69 | 5.05 | 6.89 |
+| Strict BG | Brigham City | 0.81 | 1.93 | 1.24 |
+| Four-year proxy | Snowville | 9.97 | 14.96 | 5.44 |
+| Four-year proxy | Howell | 5.76 | 9.13 | 6.89 |
+| Four-year proxy | Tremonton | 1.77 | 25.53 | 25.55 |
+| Four-year proxy | Garland | 1.77 | 25.53 | 25.55 |
+| Four-year proxy | Brigham City | 0.81 | 1.93 | 1.24 |
 
-### Strict BG Local-Background Run, 2024-2025
+The Tremonton/Garland high total in the four-year proxy row is mostly background monitor context during that selected event, not project increment. Their modeled project increment is about 1.77 ug/m3 in that row.
 
-This is the cleaner apples-to-apples local-background run, but it covers only the years where Brigham City `BG` appears in the Utah DAQ PM2.5 archive.
+## Bad-Case Benchmark
 
-| Modeled added PM2.5 threshold | Population in blocks at or above threshold |
-|---:|---:|
-| >= 10 ug/m3 | 14 people |
-| >= 7.5 ug/m3 | 18 people |
-| >= 5 ug/m3 | 244 people |
-| >= 3 ug/m3 | 289 people |
-| >= 2 ug/m3 | 324 people |
-| >= 1 ug/m3 | 769 people |
+The bad-case max-to-max comparison asks what bad modeled rural totals look like compared with bad measured SLC outcomes. Under the four-year proxy conservative-worst run:
 
-Weighted by population, the modeled event-average increment distribution was:
+- Snowville max arithmetic event-average total: 30.65 ug/m3
+- Howell max arithmetic event-average total: 29.65 ug/m3
+- Tremonton/Garland max arithmetic event-average total: 28.46 ug/m3
+- SLC Hawthorne max model-window average: 28.82 ug/m3
+- SLC Hawthorne winter max rolling 24-hour value: 51.71 ug/m3
 
-| Population-weighted percentile | Added PM2.5 |
-|---:|---:|
-| p50 | 0.26 ug/m3 |
-| p75 | 0.30 ug/m3 |
-| p90 | 0.50 ug/m3 |
-| p95 | 0.74 ug/m3 |
-| p99 | 4.07 ug/m3 |
+This benchmark does not support a claim that the base-location screen creates unprecedented countywide PM2.5 levels. It does support a more modest concern: the project can make some inversion events measurably worse in modeled downwind places.
 
-### Four-Year Proxy Run, 2022-2025
+## Worst Physical Receptors
 
-This run covers more historical events but uses explicit PM2.5 fallback stations for 2022-2023 because `BG` was not present in those archive CSVs.
+The highest receptor increments are much larger than the place-center values:
 
-| Modeled added PM2.5 threshold | Population in blocks at or above threshold |
-|---:|---:|
-| >= 10 ug/m3 | 0 people |
-| >= 7.5 ug/m3 | 10 people |
-| >= 5 ug/m3 | 49 people |
-| >= 3 ug/m3 | 489 people |
-| >= 2 ug/m3 | 569 people |
-| >= 1 ug/m3 | 22,635 people |
+| Scenario | Max physical added | BG/BV avg + max physical |
+|---|---:|---:|
+| Strict BG conservative worst secondary | 80.46 | 89.61 |
+| Four-year proxy conservative worst secondary | 87.65 | 94.52 |
 
-Population-weighted increment distribution:
+These worst receptors are not necessarily populated. They should be treated as near-source/grid-sensitive warning flags that need refined source coordinates, stack parameters, building downwash, and local meteorology before being interpreted as community exposure.
 
-| Population-weighted percentile | Added PM2.5 |
-|---:|---:|
-| p50 | 1.32 ug/m3 |
-| p75 | 1.44 ug/m3 |
-| p90 | 1.55 ug/m3 |
-| p95 | 1.71 ug/m3 |
-| p99 | 3.44 ug/m3 |
+## Source-Location Sensitivity
 
-Interpretation: most residents within the 50 km screen remain in a low-increment band. However, the strict BG run shows a higher small-population tail than the first draft, and the four-year proxy run is not a true local-background comparison for 2022-2023.
+Siting is one of the largest uncertainties. In the 70 km conservative-worst runs:
 
-## Source Location Sensitivity
-
-Because the exact stack coordinates are not yet known, source-location sensitivity is now a required part of the interpretation. Using the same modeled grids but shifting the assumed source point:
-
-| Run | Source shift | Population >=2 ug/m3 | Population >=5 ug/m3 | Population >=10 ug/m3 | Max populated-block increment |
+| Period | Shift | Population >=2 | Population >=5 | Population >=10 | Max populated block |
 |---|---|---:|---:|---:|---:|
-| Strict BG 2024-2025 | base | 324 | 244 | 14 | 11.1 ug/m3 |
-| Strict BG 2024-2025 | 10 km east | 515 | 131 | 6 | 26.5 ug/m3 |
-| Strict BG 2024-2025 | 10 km north | 301 | 260 | 191 | 27.1 ug/m3 |
-| Four-year proxy | base | 569 | 49 | 0 | 10.0 ug/m3 |
-| Four-year proxy | 10 km east | 2,428 | 239 | 53 | 15.1 ug/m3 |
-| Four-year proxy | 10 km north | 409 | 77 | 14 | 26.3 ug/m3 |
+| Strict BG | base | 8,368 | 514 | 50 | 22.1 |
+| Strict BG | 10 km east | 19,472 | 664 | 238 | 40.3 |
+| Strict BG | 10 km north | 12,496 | 324 | 266 | 59.3 |
+| Four-year proxy | base | 9,232 | 522 | 72 | 22.1 |
+| Four-year proxy | 10 km east | 32,392 | 725 | 244 | 40.3 |
+| Four-year proxy | 10 km north | 12,654 | 341 | 275 | 67.5 |
 
-This is the most important correction to the original conclusion: **the base-location population result is not robust to source-location uncertainty.**
-
-## Place-Level Screen
-
-Approximate place-centroid results:
-
-| Place | 2020 population | Distance from assumed project center | Max modeled addition |
-|---|---:|---:|---:|
-| Snowville | 163 | 22.6 km | 6.13 ug/m3 in strict BG run; 3.44 ug/m3 in four-year proxy |
-| Howell | 240 | 17.3 km | 0.96 ug/m3 in strict BG run; 3.56 ug/m3 in four-year proxy |
-| Portage | 273 | 41.1 km | 1.15-1.79 ug/m3 |
-| Thatcher CDP | 807 | 29.7 km | up to 1.66 ug/m3 |
-| Tremonton | 9,894 | 39.2 km | about 1.44 ug/m3 in four-year proxy |
-| Garland | 2,589 | 41.2 km | about 1.44 ug/m3 in four-year proxy |
-| Riverside CDP | 971 | 43.0 km | about 1.42 ug/m3 in four-year proxy |
-| Fielding | 546 | 44.9 km | about 1.35 ug/m3 in four-year proxy |
-
-This suggests that Snowville and Howell remain the most relevant small populated communities for the higher exposure side of the screen, but their relative ranking changes depending on which historical years and source-location assumptions are used. Tremonton, Garland, Riverside, and Fielding remain lower in the base-location screen.
-
-## Comparison To Salt Lake City During The Same Events
-
-For the same inversion windows, Salt Lake City's Hawthorne `HW` monitor recorded:
-
-| Historical inversion window | SLC Hawthorne event-average PM2.5 | SLC Hawthorne peak 24h average | Worst modeled Stratos-area addition | Broad modeled box addition |
-|---|---:|---:|---:|---:|
-| Jan 30-Feb 7, 2023 | 28.8 ug/m3 | 51.7 ug/m3 | 26.3 ug/m3 | 3.2 ug/m3 |
-| Dec 22-Dec 27, 2022 | 25.6 | 48.4 | 30.3 | 3.3 |
-| Jan 16-Jan 24, 2022 | 22.7 | 43.8 | 24.2 | 3.0 |
-| Mar 28-Mar 30, 2025 | 20.2 | 33.0 | 16.0 | 1.7 |
-| Dec 16-Dec 20, 2023 | 28.8 | 37.5 | 23.2 | 3.1 |
-
-The refined-grid worst physical Stratos-area additions are very large compared with SLC event averages, in some cases comparable to SLC's entire recorded event-average PM2.5. But those worst physical receptors mostly do not correspond to population centers in the base-location screen. For most residents, the modeled additions are closer to low single digits, which is much smaller than the PM2.5 levels SLC recorded during the same inversion events.
+That sensitivity is why exact stack/facility coordinates matter before making strong near-field claims.
 
 ## Accuracy Audit
 
-The numbers are credible as a screening simulation because:
+The numbers are credible as an initial screen because:
 
-- The historical meteorology and PM2.5 observations came from Utah DAQ archive data.
-- The SLC comparison used the same event windows and the official Hawthorne `HW` monitoring station.
-- The population screen now uses reproducible code and Census 2020 block-level population, not county-average population.
-- The model records station fallback choices. Brigham City `BG` data was available for 2024-2025; earlier years require explicit fallback stations because `BG` was not present in the archive CSVs used.
-- Unit tests were added for wind-direction rotation, dispersion behavior, rolling averages, event detection, and box accumulation.
-- The model uses a receptor grid and wind-direction rotation rather than assuming the plume stays on one centerline.
-- The worst-precursor run intentionally errs toward a higher-impact sensitivity case by including precursor conversion and trapped-lid behavior.
-- The model now supports custom secondary PM2.5 conversion factors and source-location sensitivity through reproducible scripts.
+- Utah DAQ monitor and meteorological archives drive event selection and hourly transport.
+- SLC Hawthorne comparisons use measured PM2.5 over the same event windows.
+- The matrix now models every detected event, not only a top-event subset.
+- Event windows are modeled continuously between first and last detected candidate hour.
+- Population summaries distinguish max-over-history exposure from event-specific simultaneous exposure.
+- Unit tests cover wind-direction rotation, upwind zeroing, emission linearity, wind-speed response, rolling averages, continuous event windows, secondary profiles, and population-overlay behavior.
 
 The numbers are not permit-grade because:
 
-- Exact Stratos source coordinates, stack count, stack heights, exhaust temperature, exit velocity, building downwash, and hourly load profiles are not yet known. This is now known to be a first-order uncertainty.
-- The precursor emissions used here are illustrative assumptions, not confirmed permit limits.
-- Secondary PM2.5 chemistry is represented by screening coefficients rather than CAMx/CMAQ/WRF-Chem or an approved regulatory reduced-form method.
-- Complex terrain, cold-air-pool structure, drainage winds, snow cover, and valley-specific mixing heights are simplified.
-- Census 2020 population was used as a proxy for population during 2022-2025 inversion dates.
-- Exposure means outdoor ambient concentration at place/block centroid; it does not estimate indoor exposure, time-activity patterns, age, health vulnerability, or dose.
-- The project-center coordinate is approximate from public map context, and 5-10 km shifts materially change exposure for small nearby communities.
+- Exact stack coordinates, stack count, stack height, stack temperature, exit velocity, building downwash, and hourly dispatch are not known.
+- The precursor rates are illustrative assumptions, not confirmed permit or stack-test values.
+- Secondary PM2.5 chemistry is represented by screening coefficients, not CAMx, CMAQ, WRF-Chem, or an accepted reduced-form chemistry model.
+- One regional monitor/station context is used for background and meteorology, which cannot resolve all local valley drainage and cold-air-pool behavior.
+- Background PM2.5 values are monitor context, not measured town-specific baselines.
+- The analysis does not estimate mortality, toxicology, indoor exposure, or dose.
 
 ## Bottom Line
 
-The modeled environmental cost is still not best described as "a large PM2.5 increase for all of Box Elder County." It is better described as:
+From a PM2.5 standpoint, the current screen suggests:
 
-> A potentially meaningful PM2.5 increase over a mostly sparsely populated area near the project, with small but nonzero increases for nearby towns, and a source-location-sensitive risk tail for small communities such as Snowville and Howell.
+- Not a defensible basis for saying the project will create massive toxic PM2.5 levels across the county.
+- Not a defensible basis for dismissing the project as air-quality irrelevant.
+- A reasonable basis for saying the project could add measurable PM2.5 during some inversion events, especially near the source and in favored plume paths.
+- A strong basis for requiring refined modeling once exact facility layout, stack parameters, emissions, dispatch profile, and site meteorology are available.
 
-For population exposure, the central estimate from this screening work is:
+The shortest fair summary is: localized, event-dependent PM2.5 concern; broad countywide catastrophe is not supported by this screen; near-source and source-location-sensitive risk remains unresolved.
 
-- Most residents within the base 50 km screen: low single-digit increments, generally below **2 ug/m3** in the population-weighted distribution.
-- Small higher-exposure communities: Snowville and Howell are the main communities to scrutinize; base estimates range from roughly **1-6 ug/m3** depending on event set.
-- Source-location sensitivity: 10 km shifts can produce populated-block maxima above **25 ug/m3** and can move dozens to hundreds of residents above **10 ug/m3** in some sensitivity cases.
-- Major population centers such as Tremonton and Garland: about **1.4 ug/m3** in the four-year proxy base-location screen.
+## Sources
 
-Compared with Salt Lake City during the same periods, the major Box Elder population centers remain far below SLC's recorded inversion PM2.5 levels in the base-location screen. That conclusion should be revisited when exact stack locations, plant phasing, emissions, and site meteorology are available.
+- Utah DAQ air pollution and meteorological archives: https://air.utah.gov/dataarchive/index.htm
+- Utah DAQ station information: https://air.utah.gov/network/Counties.htm
+- Box Elder County Stratos project map page: https://www.boxeldercountyut.gov/644/Stratos-Project-Map
+- Box Elder County Stratos project fact sheet: https://www.boxeldercountyut.gov/DocumentCenter/View/2116/Stratos-Project-Fact-Sheet
+- U.S. Census 2020 Redistricting Data API: https://api.census.gov/data/2020/dec/pl.html
+- U.S. Census TIGER/Line files: https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html
+- EPA PM2.5 NAAQS context: https://www.epa.gov/particle-pollution-designations/particle-pollution-designations-2024-revised-annual-pm-naaqs-where
