@@ -1,0 +1,14 @@
+__pycache__/
+.venv/
+*.pyc
+.DS_Store
+.pytest_cache/
+
+# Downloaded/generated inputs
+data/
+
+# Model outputs
+runs/
+
+# Local share archives
+*.zip
