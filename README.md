@@ -254,15 +254,3 @@ The outputs are:
 ```bash
 python3 -m unittest -v
 ```
-
-## Next Inputs To Improve
-
-Replace placeholders with:
-
-- exact Stratos source coordinates
-- exact number of stacks and layout
-- stack height, diameter, exit velocity, and exit temperature per stack
-- permitted or expected hourly PM2.5, NOx, SO2, NH3, and VOC rates
-- load profile by hour and season
-- site-specific met data, not only Brigham City proxy data
-- valley-specific mixing heights or ceilometer-derived boundary layer estimates
